@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:context="http://www.springframework.org/schema/context" 
+    xmlns:aop="http://www.springframework.org/schema/aop"
+    xmlns:tx="http://www.springframework.org/schema/tx"
+    xsi:schemaLocation="
+        http://www.springframework.org/schema/beans
+         http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context
+         http://www.springframework.org/schema/context/spring-context.xsd
+         http://www.springframework.org/schema/tx
+          http://www.springframework.org/schema/tx/spring-tx.xsd
+         http://www.springframework.org/schema/aop
+          http://www.springframework.org/schema/aop/spring-aop.xsd">
+<!-- 告诉spring容器去哪加载db.properties配置文件 -->
+<context:property-placeholder location="classpath:db.properties"/>
+<!-- spring容器创建c3p0 -->
+<bean name="DataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+	<property name="driverClass" value="${driverClass}"></property>
+	<property name="jdbcUrl" value="${jdbcUrl}"></property>
+	<property name="user" value="${user}"></property>
+	<property name="password" value="${password}"></property>
+</bean>
+
+<!-- 让struts2中Action交给Spring容器来管理 -->
+<bean name="userAction" class="com.felix.web.UserAction" scope="prototype">
+  <property name="userservice" ref="userService"></property>
+</bean>   
+
+<!-- 让service层交给Spring容器来管理  --> 
+<bean name="userService"  class="com.felix.service.UserService"></bean>
+
+
+
+<bean name="SessionFactory" class="org.springframework.orm.hibernate5.LocalSessionFactoryBean">
+<!-- 将C3P0数据源配置给hibernate框架使用 -->
+<property name="dataSource" ref="DataSource"></property>
+
+<property name="hibernateProperties">
+  <props>
+
+    <prop key="hibernate.dialect">org.hibernate.dialect.MySQLDialect</prop>
+    
+    <!--3个可选参数  -->
+    <prop key="hibernate.show_sql">true</prop>
+    <prop key="hibernate.format_sql">true</prop>
+    <prop key="hibernate.hbm2ddl.auto">update</prop>
+  </props>
+</property>
+
+<property name="mappingDirectoryLocations" value="classpath:com/felix/domain"></property>
+</bean>
+
+<!-- spring容器管理dao层 -->
+<bean name="userDao" class="com.felix.dao.UserDao">
+<!-- HibernateDaoSupport 需要依赖  sessionFactory  -->
+<property name="sessionFactory" ref="SessionFactory"></property>
+</bean>
+
+<!-- 配置事务通知 -->
+<tx:advice id="txadvice" transaction-manager="transactionManager">
+<tx:attributes>
+    <tx:method name="get*" isolation="READ_COMMITTED" propagation="REQUIRED" read-only="true"/>
+    <tx:method name="add*" isolation="READ_COMMITTED" propagation="REQUIRED" read-only="false"/>
+</tx:attributes>
+</tx:advice>
+
+<!--配置织入 aop -->
+<aop:config>
+  <aop:pointcut expression="execution(* com.felix.service.*Service.*(..))" id="pc"/>
+  <aop:advisor advice-ref="txadvice" pointcut-ref="pc"/>
+</aop:config>
+
+</beans>
+          
